@@ -8,6 +8,7 @@ Dcap=4500
 %
 E0=6.3*10^-5
 N0_cph=3
+% N0_cph=3.5
 N0=N0_cph*2*pi/3600
 b=1300
 g=9.81;
@@ -20,12 +21,22 @@ N1=N0*exp(-2);
 % Ncap=N0+0*zz;
 % N0=5.24*10^-3
 %
+%  Buoyancy frequency for Levine surface reflection problem
+DeltaNcap=10*2*pi/3600
+% DeltaNcap=15*2*pi/3600
+% DeltaNcap=20*2*pi/3600
+% DeltaNcap=25*2*pi/3600
 % depth above which N decreases or increases by fractional distance to surface
+% d=150
 d=200
 % d=400
 % d=600
 % d=1000
-
+% mixed-layer depth & transition layer thickness
+d_ml=40
+% d_ml=20
+d_th=20
+% d_th=10
 %
 xlat=30;
 % xlat=45;
@@ -40,13 +51,14 @@ dz=1
 % jm=2
 % jm=3
 % jm=5
-jmax=5;
+% jm=10;
+jmax=5
 
 % omega_cph:  internal wave frequency in cph
 % zstar:  GM depth at which to match
 %
-zstarGM=250;
-% zstarGM=300;
+% zstarGM=220;
+zstarGM=300;
 % nzstar=length(zstarn)
 % zstarn=[200:10:2500];
 % nzstar=length(zstarn)
@@ -120,8 +132,8 @@ Nb=N0*exp(zzb/b);
 Nb(Nb<N1)=N1;
 % Nb(Nb>N300)=N300;
 
-zz(1);
-zzb(nzzb-nz+1);
+% zz(1);
+% zzb(nzzb-nz+1);
 % Z0_fac=max(abs(Zcap));
 kzstarb=nzzb-kzstar+1;
 
@@ -133,10 +145,25 @@ P_facp=1;
 %  Buoyancy frequency for Levine surface reflection problem
 % Ncap=N0*exp(zz/b);
 % Ncap=N0*exp(zz/b).*min(1,abs(zz/d));
-DeltaNcap=10*2*pi/3600
-% DeltaNcap=0.
-Ncap=N0*exp(zz/b)+DeltaNcap.*max(0,(d+zz)/d);
+% DeltaNcap=25*2*pi/3600
+% DeltaNcap=10*2*pi/3600
+for kz=1:nz
+    if(zz(kz) < -d)
+        Ncap(kz)=N0*exp(zz(kz)/b);
+    elseif(zz(kz) < -(d_ml+d_th))
+        Ncap(kz)=N0*exp(zz(kz)/b) ...
+                 +DeltaNcap*max(0,(d+zz(kz))/(d-d_ml-d_th));
+    elseif(zz(kz) < -d_ml)
+        Ncap(kz)=(N0*exp(-(d_ml+d_th)/b)+DeltaNcap) ...
+                  *(-(d_ml+zz(kz))/d_th);
+    else
+        Ncap(kz)=0.;
+    end
+end
+                              
+%     Ncap=N0*exp(zz/b)+DeltaNcap.*max(0,(d+zz)/d);
 
+% Pcap_jm=zeros(nz,2,jmax);
 
 for jm=1:nj
     
@@ -157,7 +184,6 @@ for jm=1:nj
     P_fac=max(abs(Pcap));
     Pcap0=Pcap/P_fac;
     Zcap0=Zcap/P_fac;
-    
 
     % for kzs=1:nzstar
     % 
@@ -165,11 +191,11 @@ for jm=1:nj
 
     Z0_fac=Zcap0(kzstarb);
     P0_fac=Pcap0(kzstarb);
+
     
     PcapWKB_jm(:,jm)=Pcap0/sqrt((Pcap0(kzstarb:nzzb) ...
                                 *Pcap0(kzstarb:nzzb)')*dz/zstarGM);
-
-
+%     PcapWKB_jm(:,jm)=Pcap0/P0_fac;
 
     for momg=1:nomg
 
@@ -251,13 +277,17 @@ for jm=1:nj
         psi_fac=Z0_fac/Bcap(1);
         Zcap=Bcap*psi_fac;
         Pcap=Pcap*psi_fac;
-        
+        %
         Pcap=Pcap/sqrt((Pcap'*Pcap)*dz/zstarGM);
         %
         Pmag_fac(momg,jm)=abs(Pcap(nz)/Pcap0(nzzb));
-%         Pmag_fac(momg,jm)=abs(Pcap(nz));
+%        Pmag_fac(momg,jm)=abs(Pcap(nz));
                 
         Pcap_jm(:,momg,jm)=Pcap;
+        
+%         if(momg==1 || momg==nomg)
+%             Pcap_jm(:,min(momg,2),jm)=Pcap;
+%         end
 
     end
 
@@ -402,7 +432,6 @@ end
 % end
 % 
 
-
 figure
 plot(real(Pcap_jm(:,1,1)-Pcap_jm(1,1,1)),zz)
 hold on
@@ -411,7 +440,7 @@ for momg=2:10:nomg
     plot(real(Pcap_jm(:,momg,1)-Pcap_jm(1,momg,1)),zz)
     plot(imag(Pcap_jm(:,momg,1)-Pcap_jm(1,momg,1)),zz)
 end
-xlabel('P_1, \omega=\{f,N_*\}','FontSize',fsa)
+xlabel('P_j-P_j(z=-z_*)','FontSize',fsa)
 ylabel('z (m)','FontSize',fsa)
 set(gca,'FontSize',fsa)
 
